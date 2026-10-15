@@ -43,6 +43,7 @@ import { SetOptionsTool } from './tools/SetOptionsTool';
 import { SorobanEventIndexerTool } from './tools/SorobanEventIndexerTool';
 import { StellarIdentityTool } from './tools/StellarIdentityTool';
 import { FriendBotTool } from './tools/FriendBotTool';
+import { NanoPaymentTool } from './tools/NanoPaymentTool';
 import { listen as listenContractEvents } from './tools/ContractEventListener';
 import {
   watchContractStorage,
@@ -119,7 +120,8 @@ export type TaskType =
   | 'set_options'
   | 'soroban_event_query'
   | 'stellar_identity_auth'
-  | 'friendbot';
+  | 'friendbot'
+  | 'nano_payment';
 
 export interface AgentTask {
   type: TaskType;
@@ -272,6 +274,7 @@ export class PayFiAgent extends EventEmitter {
   private sorobanEventIndexerTool: SorobanEventIndexerTool;
   private stellarIdentityTool: StellarIdentityTool;
   private friendBotTool: FriendBotTool;
+  private nanoPaymentTool: NanoPaymentTool;
 
   private activeTasks = 0;
   private isDraining = false;
@@ -323,6 +326,7 @@ export class PayFiAgent extends EventEmitter {
     this.sorobanEventIndexerTool = new SorobanEventIndexerTool();
     this.stellarIdentityTool = new StellarIdentityTool(config.agentKeypair().secret());
     this.friendBotTool = new FriendBotTool();
+    this.nanoPaymentTool = new NanoPaymentTool();
 
     // ── Register event listeners — every registration is mirrored in destroy() ──
     const onError = (err: Error) => {
@@ -762,6 +766,10 @@ export class PayFiAgent extends EventEmitter {
 
           case 'friendbot':
             data = await this.friendBotTool.execute(task.payload);
+            break;
+
+          case 'nano_payment':
+            data = await this.nanoPaymentTool.execute(task.payload);
             break;
 
           default:
