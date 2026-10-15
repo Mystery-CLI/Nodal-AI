@@ -26,6 +26,9 @@ import { AccountInfoTool } from '../backend/tools/AccountInfoTool';
 import { TrustlineTool } from '../backend/tools/TrustlineTool';
 import { MultiSigPaymentTool } from '../backend/tools/MultiSigPaymentTool';
 import { BatchPaymentTool } from '../backend/tools/BatchPaymentTool';
+import { SorobanDeployTool } from '../backend/tools/SorobanDeployTool';
+import { SwapTool } from '../backend/tools/SwapTool';
+import { AccountHistoryTool } from '../backend/tools/AccountHistoryTool';
 import { ValidationError, UnauthorizedError, ErrorType } from '../backend/errors';
 
 vi.mock('../backend/tools/StellarPaymentTool', () => ({
@@ -143,6 +146,24 @@ vi.mock('../backend/tools/AnchorQuoteTool', () => ({
 vi.mock('../backend/tools/InflationTool', () => ({
   InflationTool: vi.fn().mockImplementation(() => ({
     execute: vi.fn().mockResolvedValue({ txHash: 'inflation_mock_hash', ledger: 1 }),
+  })),
+}));
+
+vi.mock('../backend/tools/SorobanDeployTool', () => ({
+  SorobanDeployTool: vi.fn().mockImplementation(() => ({
+    execute: vi.fn().mockResolvedValue({ txHash: 'deploy_mock_hash', ledger: 1 }),
+  })),
+}));
+
+vi.mock('../backend/tools/SwapTool', () => ({
+  SwapTool: vi.fn().mockImplementation(() => ({
+    execute: vi.fn().mockResolvedValue({ txHash: 'swap_mock_hash', ledger: 1 }),
+  })),
+}));
+
+vi.mock('../backend/tools/AccountHistoryTool', () => ({
+  AccountHistoryTool: vi.fn().mockImplementation(() => ({
+    fetch: vi.fn().mockResolvedValue({ payments: [] }),
   })),
 }));
 
@@ -1303,6 +1324,50 @@ const DISPATCH_MATRIX: DispatchRow[] = [
     'routes liquidity_pool to LiquidityPoolTool',
   ],
   ['inflation', { action: 'set', inflationDestination: DEST }, 'routes inflation to InflationTool'],
+  [
+    'stellar_toml',
+    { domain: 'stellar.org' },
+    'routes stellar_toml to StellarTomlTool',
+  ],
+  [
+    'data_entry',
+    { name: 'test_key', value: 'test_value' },
+    'routes data_entry to DataEntryTool',
+  ],
+  [
+    'sequence_number',
+    { accountId: DEST },
+    'routes sequence_number to SequenceNumberTool',
+  ],
+  [
+    'sponsored_account',
+    { action: 'start', sponsoredId: DEST },
+    'routes sponsored_account to SponsoredAccountTool',
+  ],
+  [
+    'anchor_quote',
+    { sourceAsset: 'USDC', destinationAsset: 'EURC', amount: '10' },
+    'routes anchor_quote to AnchorQuoteTool',
+  ],
+  [
+    'soroban_deploy',
+    { action: 'upload', wasm: '0061736d' },
+    'routes soroban_deploy to SorobanDeployTool',
+  ],
+  [
+    'swap',
+    {
+      sellAsset: { code: 'XLM' },
+      buyAsset: { code: 'USDC', issuer: ISSUER },
+      sellAmount: '10',
+    },
+    'routes swap to SwapTool',
+  ],
+  [
+    'account_history',
+    { accountId: DEST },
+    'routes account_history to AccountHistoryTool',
+  ],
 ];
 
 describe('PayFiAgent — task dispatch matrix (#450)', () => {
@@ -1425,16 +1490,34 @@ describe('PayFiAgent — task dispatch matrix (#450)', () => {
             .mockResolvedValue({ results: [{ txHash: 'batch_dispatch_hash', ledger: 1 }] }),
         }) as any
     );
+    vi.mocked(SorobanDeployTool).mockImplementation(
+      () =>
+        ({
+          execute: vi.fn().mockResolvedValue({ txHash: 'deploy_dispatch_hash', ledger: 1 }),
+        }) as any
+    );
+    vi.mocked(SwapTool).mockImplementation(
+      () =>
+        ({
+          execute: vi.fn().mockResolvedValue({ txHash: 'swap_dispatch_hash', ledger: 1 }),
+        }) as any
+    );
+    vi.mocked(AccountHistoryTool).mockImplementation(
+      () =>
+        ({
+          fetch: vi.fn().mockResolvedValue({ payments: [] }),
+        }) as any
+    );
 
     agent = new PayFiAgent();
   });
 
-  // Verify we are testing exactly 14 registered TaskType values.
-  it('dispatch matrix covers exactly 14 TaskType entries', () => {
-    expect(DISPATCH_MATRIX).toHaveLength(14);
+  // Verify we are testing exactly 22 registered TaskType values.
+  it('dispatch matrix covers exactly 22 TaskType entries', () => {
+    expect(DISPATCH_MATRIX).toHaveLength(22);
     const taskTypes = DISPATCH_MATRIX.map(([type]) => type);
     // All entries must be unique — no accidental duplicates.
-    expect(new Set(taskTypes).size).toBe(14);
+    expect(new Set(taskTypes).size).toBe(22);
   });
 
   test.each(DISPATCH_MATRIX)(
